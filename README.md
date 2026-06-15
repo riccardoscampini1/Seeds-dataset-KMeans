@@ -96,17 +96,104 @@ Se lanciato dal terminale, la pipeline di progetto esegue automaticamente:
 
 ## Utilizzo dell'API
 
-L'API è consultabile direttamente da browser.
-
-Se dovesse servire, è possibile installare dei plug-in, tra cui:
+L'API è consultabile direttamente tramite dei plug-in browser. Due esempi di essi sono i seguenti:
 
 - Rest-Client (Chrome): [download](https://chromewebstore.google.com/detail/rest-client/oienkoejnhkbcibhdnpjoemdnmiokgah)
 - Rested (Firefox): [download](https://addons.mozilla.org/en-US/firefox/addon/rested/)
 
-## API Endpoint
+## Funzionamento degli Endpoints
 
 Il progetto è provvisto di diversi endpoint, consultabili nella route **home**.
 ```
 http://127.0.0.1:5000/
 ```
-Le funzionalità dell'API sono le seguenti:
+
+Nella home sono spiegati i due passaggi da seguire:
+
+**1. Caricamento del dataset e ritiro dell'uuid**
+
+**2. Utilizzare gli altri endpoint inserendo l'uuid in fondo**
+
+## Inserimento del dataset da consultare
+
+La prima cosa da fare sull'api è recarsi all'endpoint POST
+```
+http://127.0.0.1:5000/load
+```
+
+e caricare un dataset, che nel nostro caso è "Seeds":
+```json
+{"file_path": "data/seeds_dataset.txt"}
+```
+
+all'interno della risposta (riga 14) sarà contenuto un "pipeline-id", che è un uuid
+che identifica univocamente l'utente che lavora al codice: è necessario per tracciare le modifiche
+che fa un utente piuttosto che un altro
+
+**L'utilizzo dell'UUID è fondamentale in quanto senza di esso gli altri endpoint non funzionerebbero**
+
+Una volta inserito il dataset e copiato l'uuid si può procedere a consultare gli altri endpoints
+
+## Endpoints per consultare il dataset
+
+Tutti questi endpoints dovranno essere seguiti da una UUID. Un esempio è "8de3c40a-b610-4866-836c-d12cc2667dce"
+
+### Summary [GET]
+
+Genera un riepilogo statistico del dataset. 
+L'endpoint esegue un'analisi esplorativa (EDA) sui dati della pipeline, producendo:
+
+- Statistiche descrittive delle feature numeriche (count, mean, std, min, max, percentili, ecc.).
+- Un riepilogo automatico dell'analisi esplorativa generato dall'EDAAnalyzer.
+```
+http://127.0.0.1:5000/summary
+```
+
+### Correlation [POST]
+
+L'endpoint calcola la correlazione tra le variabili numeriche e crea una visualizzazione grafica sotto forma di heatmap/matrice di correlazione.
+
+L'immagine generata viene salvata nella directory outputs
+```
+http://127.0.0.1:5000/correlation
+```
+
+### Distributions [POST]
+
+L'endpoint crea una serie di grafici che mostrano la distribuzione 
+statistica delle feature presenti nel dataset
+
+L'immagine generata viene salvata nella directory outputs
+```
+http://127.0.0.1:5000/distributions
+```
+
+### Boxplots [POST]
+
+Genera i boxplot delle feature per l'identificazione degli outlier.
+L'endpoint produce una visualizzazione tramite boxplot per ciascuna feature.
+
+L'immagine generata viene salvata nella directory outputs
+```
+http://127.0.0.1:5000/boxplots
+```
+### Outliers Remove [POST]
+
+Rimuove gli outlier dal dataset utilizzando il metodo IQR (Interquartile Range).
+```
+http://127.0.0.1:5000/outliers/remove
+```
+
+### Outliers Distributions [POST]
+
+Genera un confronto grafico tra distribuzioni prima e dopo la rimozione degli outlier.
+
+Questo endpoint visualizza l’effetto della rimozione degli outlier confrontando:
+
+Distribuzione del dataset originale
+Distribuzione del dataset pulito (IQR filtering)
+
+È utile per verificare visivamente l’impatto della pulizia dei dati.
+```
+http://127.0.0.1:5000/outliers/distributions
+```
