@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Modelli cachati — troppo pesanti per git, si rigenano con main.py
+models/*.pkl
+
+# Output generati dalla pipeline — non servono nel repo
+data/submission.csv
+data/submissions/
+
+# Archivi e lock file (LibreOffice/Excel)
+data/*.zip
+data/.~lock.*
+make_presentation.py
+
+# Presentazione personale
+results/*.pptx
