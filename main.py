@@ -26,6 +26,7 @@ from src import FeatureScaler
 from src import PCAProcessor
 from src import MulticollinearityReducer
 from src import KMeansModel
+from src import FeatureEngineering
 
 logger = get_logger(__name__)
 
@@ -158,6 +159,40 @@ def main():
         )
         save_figure(fig, figures_dir, "04_distributions_before_after_outlier_removal.png")
         
+        # -----
+        # FEATURE ENGINEERING (PERIMETRO/AREA, LENGTH/WIDTH)
+        # ------
+        print_header("FEATURE ENGINEERING (PERIMETER/AREA, LENGTH/WIDTH)")
+        print("[INFO] Creating engineered features...")
+
+        fe = FeatureEngineering()
+
+        X_fe = fe.create_ratio_feature(
+            X_clean,
+            numerator="perimeter",
+            denominator="area",
+            new_feature_name="perimeter_area_ratio",
+            drop_originals=True,
+        )
+
+        X_fe = fe.create_ratio_feature(
+            X_fe,
+            numerator="length_kernel",
+            denominator="width_kernel",
+            new_feature_name="length_width_ratio",
+            drop_originals=True,
+        )
+
+        print("[OK] Feature engineering completed!")
+
+        print(f"Original shape: {X_clean.shape}")
+        print(f"New shape:      {X_fe.shape}")
+
+        print("\nFeatures:")
+        print(list(X_fe.columns))
+        print()
+
+
         # ══════════════════════════════════════════════════════════════════════════════
         # 7. FEATURE SCALING (ROBUST SCALER)
         # ══════════════════════════════════════════════════════════════════════════════
@@ -173,6 +208,17 @@ def main():
         print(f"  Columns scaled: {scaler_info['n_columns_scaled']}")
         print(f"\nScaled data preview:")
         print(X_scaled.describe().to_string())
+
+        print("[INFO] Applying Robust Scaling to Feature Engineered DF...")
+
+        X_fe_scaled = scaler.scale_robust(X_fe)
+        
+        scaler_fe_info = scaler.get_scaler_info()
+        print("[OK] Robust scaling applied!")
+        print(f"  Scaler type: {scaler_fe_info['scaler_type']}")
+        print(f"  Columns scaled: {scaler_fe_info['n_columns_scaled']}")
+        print(f"\nScaled data preview:")
+        print(X_fe_scaled.describe().to_string())
         
         # ══════════════════════════════════════════════════════════════════════════════
         # 8. DIMENSIONALITY REDUCTION (PCA)
@@ -193,6 +239,23 @@ def main():
         print("\n[INFO] Saving 2D PCA projection...")
         fig = pca.plot_pca_2d(X_pca, show=False)
         save_figure(fig, figures_dir, "06_pca_2d_projection.png")
+
+        print_header("STEP 8: CASE 2 - FE + PCA + K-MEANS")
+
+        print("[INFO] Applying PCA to reduce dimensions...")
+        pca_fe = PCAProcessor()
+        pca_fe.configure(n_components=0.95, random_state=42)
+        X_fe_pca = pca_fe.fit_transform(X_fe_scaled)
+        
+        pca_fe.print_report()
+        
+        print("\n[INFO] Saving PCA variance...")
+        fig = pca_fe.plot_explained_variance(show=False)
+        save_figure(fig, figures_dir, "05_pca_fe_explained_variance.png")
+        
+        print("\n[INFO] Saving 2D PCA projection...")
+        fig = pca_fe.plot_pca_2d(X_fe_pca, show=False)
+        save_figure(fig, figures_dir, "06_pca_fe_2d_projection.png")
         
         # ══════════════════════════════════════════════════════════════════════════════
         # 9. K-MEANS TRAINING
@@ -221,6 +284,32 @@ def main():
         print(f"  - Inertia:              {metrics_pca['inertia']:.4f} (lower is better)")
         print(f"  - Number of Clusters:   {metrics_pca['n_clusters']}")
         print(f"  - Adjusted Rand Index:  {ari_pca:.4f} (higher is better, range: -1 to 1)")
+
+
+        print("[INFO] Training K-Means model on Feature Engineered PCA data...")
+        kmeans_fe_pca = KMeansModel()
+        kmeans_fe_pca.train(X_fe_pca, verbose=True)
+        kmeans_fe_pca.print_summary()
+
+        labels_fe_pca = kmeans_fe_pca.predict(X_fe_pca)
+
+        print("[INFO] Saving Feature Engineered PCA K-Means elbow curve...")
+        fig = kmeans_fe_pca.plot_elbow(X_fe_pca, n_clusters_range=(2, 10), show=False)
+        save_figure(fig, figures_dir, "07_fe_pca_kmeans_elbow_curve.png")
+
+        print("\n[INFO] Saving Feature Engineered PCA K-Means clusters in 2D...")
+        fig = kmeans_fe_pca.plot_clusters_2d(X_fe_pca, labels=labels_fe_pca, pca_components=0, show=False)
+        save_figure(fig, figures_dir, "08_fe_pca_kmeans_clusters_2d.png")
+
+        metrics_fe_pca = kmeans_fe_pca.evaluate(X_fe_pca, labels=labels_fe_pca)
+        ari_fe_pca = adjusted_rand_score(y_clean, labels_fe_pca)
+
+        print("[INFO] Feature Engineered PCA K-Means Evaluation Results:")
+        print(f"  - Silhouette Score:     {metrics_fe_pca['silhouette_score']:.4f} (higher is better, range: -1 to 1)")
+        print(f"  - Davies-Bouldin Index: {metrics_fe_pca['davies_bouldin_index']:.4f} (lower is better)")
+        print(f"  - Inertia:              {metrics_fe_pca['inertia']:.4f} (lower is better)")
+        print(f"  - Number of Clusters:   {metrics_fe_pca['n_clusters']}")
+        print(f"  - Adjusted Rand Index:  {ari_fe_pca:.4f} (higher is better, range: -1 to 1)")    
 
         print_header("STEP 9: CASE 2 - MULTICOLLINEARITY REDUCTION + K-MEANS")
 
@@ -285,6 +374,143 @@ def main():
         print(f"  - Adjusted Rand Index:  {ari_multicollinearity:.4f} (higher is better, range: -1 to 1)")
         print(f"  - Number of Clusters:   {metrics_multicollinearity['n_clusters']}")
 
+        print_header(
+    "STEP 9.1: FEATURE ENGINEERING + MULTICOLLINEARITY + K-MEANS"
+)
+        print(
+            "[INFO] Removing multicollinear variables "
+            "with |corr| > 0.9..."
+        )
+
+        multicollinearity = (
+            MulticollinearityReducer(
+                threshold=0.9
+            )
+        )
+
+        X_fe_multicollinearity = (
+            multicollinearity.fit_transform(
+                X_fe
+            )
+        )
+
+        multicollinearity_report = (
+            multicollinearity.report()
+        )
+
+
+        print("[INFO] Correlated pairs found:")
+
+        if multicollinearity_report["pairs"]:
+
+            for pair in multicollinearity_report["pairs"]:
+
+                print(
+                    f"  - "
+                    f"{pair['col_a']} "
+                    f"<-> "
+                    f"{pair['col_b']}: "
+                    f"r = {pair['r']:.4f}"
+                )
+
+        else:
+
+            print(
+            "  No correlated pairs "
+                "above threshold."
+            )
+
+        print(
+            f"[INFO] Columns kept: "
+            f"{multicollinearity_report['cols_to_keep']}"
+        )
+
+        print(
+            f"[INFO] Columns dropped: "
+            f"{multicollinearity_report['cols_to_drop']}"
+        )
+
+        print(
+            f"[OK] Shape after reduction: "
+            f"{X_fe_multicollinearity.shape}"
+        )
+
+
+        print(
+            "[INFO] Training K-Means model "
+            "on engineered data..."
+    )
+
+        kmeans_fe_multicollinearity = KMeansModel()
+
+        kmeans_fe_multicollinearity.train(
+            X_fe_multicollinearity,
+            verbose=True,
+        )   
+
+        kmeans_fe_multicollinearity.print_summary()
+
+        labels_fe = kmeans_fe_multicollinearity.predict(
+            X_fe_multicollinearity
+        )
+
+        print(
+            "[INFO] Saving elbow curve..."
+        )
+
+        fig = kmeans_fe_multicollinearity.plot_elbow(
+            X_fe_multicollinearity,
+            n_clusters_range=(2, 10),
+            show=False,
+    )
+
+        save_figure(
+            fig,
+            figures_dir,
+            "12_fe_multicollinearity_elbow_curve.png",
+        )
+
+
+        print(
+            "\n[INFO] Saving clusters..."
+        )
+
+        fig = kmeans_fe_multicollinearity.plot_clusters_2d(
+            X_fe_multicollinearity,
+            labels=labels_fe,
+            pca_components=2,
+            show=False,
+        )
+
+        save_figure(
+            fig,
+            figures_dir,
+            "13_fe_multicollinearity_clusters_2d.png",
+        )
+
+        metrics_fe_multicollinearity = kmeans_fe_multicollinearity.evaluate(
+            X_fe_multicollinearity,
+            labels=labels_fe,
+        )
+
+        ari_fe_multicollinearity = adjusted_rand_score(
+            y_clean,
+            labels_fe,
+        )
+
+        print(
+            f"""
+        [INFO] Feature Engineering + Multicollinearity K-Means Results:
+        - Silhouette Score:     {metrics_fe_multicollinearity['silhouette_score']:.4f}
+        - Davies-Bouldin Index: {metrics_fe_multicollinearity['davies_bouldin_index']:.4f}
+        - Inertia:              {metrics_fe_multicollinearity['inertia']:.4f}
+        - Adjusted Rand Index:  {ari_fe_multicollinearity:.4f}
+        - Number of Clusters:   {metrics_fe_multicollinearity['n_clusters']}
+        """
+        )
+
+
+
         print_header("PIPELINE SUMMARY")
         
         # ══════════════════════════════════════════════════════════════════════════════
@@ -327,6 +553,24 @@ def main():
                     "inertia": metrics_multicollinearity["inertia"],
                     "adjusted_rand_index": ari_multicollinearity,
                     "n_clusters": metrics_multicollinearity["n_clusters"],
+                },
+                {
+                    "model": "FE + PCA + K-Means",
+                    "features": X_fe_pca.shape[1],
+                    "silhouette_score": metrics_fe_pca["silhouette_score"],
+                    "davies_bouldin_index": metrics_fe_pca["davies_bouldin_index"],
+                    "inertia": metrics_fe_pca["inertia"],
+                    "adjusted_rand_index": ari_fe_pca,
+                    "n_clusters": metrics_fe_pca["n_clusters"],
+                },
+                {
+                    "model": "FE + Multicollinearity + K-Means",
+                    "features": X_fe_multicollinearity.shape[1],
+                    "silhouette_score": metrics_fe_multicollinearity["silhouette_score"],
+                    "davies_bouldin_index": metrics_fe_multicollinearity["davies_bouldin_index"],
+                    "inertia": metrics_fe_multicollinearity["inertia"],
+                    "adjusted_rand_index": ari_fe_multicollinearity,
+                    "n_clusters": metrics_fe_multicollinearity["n_clusters"],
                 },
             ]
         )

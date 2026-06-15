@@ -6,6 +6,7 @@ from .scaling import FeatureScaler
 from .pca import PCAProcessor
 from .multicollinearita import MulticollinearityReducer
 from .k_means_model import KMeansModel
+from .feature_engineering import FeatureEngineering
 from .utils import (
     setup_logger,
     get_logger,
@@ -38,4 +39,5 @@ __all__ = [
     'ModelTrainingError',
     'PersistenceError',
     'ValidationError',
+    'FeatureEngineering'
 ]
