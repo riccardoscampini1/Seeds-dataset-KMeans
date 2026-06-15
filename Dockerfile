@@ -16,20 +16,14 @@ ENV PYTHONPATH=/app
 # (opzionale ma utile per ML parallelo)
 ENV LOKY_MAX_CPU_COUNT=4
 
-# Copia requirements
-COPY requirements.txt .
+# Copia tutto il progetto
+COPY . .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia tutto il progetto
-COPY . .
-
-# Permesso esecuzione script
-RUN chmod +x start.sh
-
 # Porta Flask
-EXPOSE 5001
+EXPOSE 5000
 
 # Avvio container
-CMD ["bash", "start.sh"]
+CMD ["python", "app.py"]

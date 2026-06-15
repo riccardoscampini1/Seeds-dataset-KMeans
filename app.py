@@ -1,4 +1,6 @@
 from flask import Flask
+
+from api.home import home_bp
 from api.loader_bp import loader_bp
 from api.eda_bp import eda_bp
 from api.outliers_bp import outliers_bp
@@ -10,6 +12,7 @@ from api.evaluation_bp import evaluation_bp
 
 
 app = Flask(__name__)
+app.register_blueprint(home_bp)
 app.register_blueprint(loader_bp)
 app.register_blueprint(eda_bp)
 app.register_blueprint(outliers_bp)
@@ -20,4 +23,4 @@ app.register_blueprint(kmeans_bp)
 app.register_blueprint(evaluation_bp)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True, port=5001)
+    app.run(host='0.0.0.0', debug=True, port=5000)
